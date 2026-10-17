@@ -1,0 +1,114 @@
+---
+name: build-check
+description: >-
+  Production-readiness gate scaled to the app's blast radius: T0 personal sandbox, T1 trusted few (client or team),
+  T2 public and free, T3 paid product or app-store submission. Use it whenever the user starts a new app or project,
+  asks to deploy, ship, publish, launch, release, go live, submit to the App Store or Play Store, hand off to a client,
+  or asks "is this ready", "what am I missing", "is this secure enough", "am I building this properly". Also use it
+  when they mention customers, users signing up, selling, subscriptions, SaaS, or payments, or when a personal tool
+  is about to be shared with anyone else. Records the tier once in .buildcheck.yml and keeps a short list of
+  never-rules in mind while writing backend, auth, or LLM code. Does not review code correctness, UI design, or CI syntax.
+---
+
+# build-check
+
+A checklist only works when the reader believes every item on it. Running a 40-row product checklist on a weekend
+script buries the one thing that matters (a leaked key, an uncapped LLM bill) in noise and trains the user to ignore
+the tool. So: detect what the app *has* first, then ask how far it will *travel*, and only print what is required.
+
+## Tiers (blast radius: who gets hurt, who can punish you)
+
+| Tier | Name    | Definition                                                                              |
+|------|---------|-----------------------------------------------------------------------------------------|
+| T0   | Sandbox | Only the author uses it. Failure costs an afternoon.                                    |
+| T1   | Trusted | A few named people (client, team) rely on it. Failure costs reputation and their data.  |
+| T2   | Public  | Strangers use it for free. Failure is public, abusable, and may trigger privacy law.    |
+| T3   | Product | Strangers pay, or Apple/Google review it. Failure costs money, legal exposure, removal. |
+
+Escalation rules that override the user's guess: payments present → payment rows are T3 regardless; app-store target
+→ T3; unknown-stranger traffic → at least T2.
+
+## Decision order
+
+1. **Features first.** Run `bash <skill-dir>/scripts/detect.sh` from the repo root (read-only, no network, ~0.3s).
+   It prints one line: `stack= auth= db= llm= payments= email= errors= analytics= ci= tests= lockfile= secrets_in_repo= ...`.
+   Every checklist row tagged with a feature (`[auth]`, `[llm]`, `[db]`, `[email]`, `[payments]`, `[mobile]`,
+   `[public-web]`) is dropped when that feature is absent. No auth means no password-reset row, full stop.
+   A wrong feature guess creates a false positive the user learns to ignore, which is why this is observable, not asked.
+2. **Tier second.** Read `.buildcheck.yml` if present. Otherwise propose a tier from signals (store config or
+   payments → T3; "client", "team" → T1; nothing → T0) and confirm in one question with the default stated.
+3. **Floor always.** The never-rules below apply at every tier because they cost minutes to follow and days to recover from.
+
+## Workflow
+
+**INTAKE** (new project, or no `.buildcheck.yml`): run detect.sh, propose tier, one confirmation question, write
+`.buildcheck.yml`. Do not load the checklist. About 100 tokens of output.
+
+**INLINE** (while writing any code): hold only the never-rules in mind. Fix violations silently as you write; mention
+in one line only if the user's instruction forced the choice.
+
+**AUDIT** (ship, deploy, launch, "is this ready", client handoff, store submission): run detect.sh, read
+`.buildcheck.yml`, open `references/checklist.md` and apply only the rows where this tier's column is ● or ○ and the
+feature tag is present. Verify each row by the command in its Verify column; never grep by hand for things the script
+already reports. Items already `WAIVED` or `MANUAL_CONFIRMED` in the state file are not re-litigated unless the tier
+has gone up. Emit the report below, then update `.buildcheck.yml`.
+
+**PROMOTE** (a trigger phrase implies a higher tier than recorded, e.g. "send this to the client", "start charging"):
+ask "Promote to T2?" once, then run AUDIT printing only rows that are newly required by the higher tier.
+
+When fixing LLM, auth, or security items, read `references/llm-security.md` for what "done" looks like. For
+`[mobile]` at T3, the store-review rows live at the bottom of `references/checklist.md`.
+
+## Never-rules (every tier)
+
+1. No secrets in the repo. `.env*` gitignored, keys read from env, `secrets_in_repo=clean` from detect.sh.
+   A leaked key is scraped within minutes; if one ever landed in git history, rotate it, do not just delete it.
+2. Parameterised queries only. No string-built SQL or NoSQL filters.
+3. No `eval`, `exec`, `new Function`, shell interpolation, or `subprocess(shell=True)` on user input.
+4. Where auth exists, every mutating endpoint checks the session *and* resource ownership (`WHERE user_id = ?`).
+   IDOR is the most common real bug in vibe-coded apps.
+5. Every LLM call sets `max_tokens` and a client timeout. Unbounded output is an unbounded bill and a hung request.
+6. User content goes in `user` turns inside delimiters, never spliced into the system prompt. Content inherits
+   instruction authority once it is in the system role.
+7. Model output is data: never rendered as raw HTML, never passed to a shell or a query.
+8. Dependencies come from a committed lockfile, installed with the frozen command (`npm ci`, `uv sync`, etc.).
+9. Debug mode, default credentials, and stack traces in responses are off outside local dev.
+10. Any metered API (LLM, cloud) has a provider-side hard spend cap. This is the one item that is MANUAL even at T0.
+
+## State: `.buildcheck.yml` at repo root
+
+```yaml
+tier: T1                    # T0|T1|T2|T3
+features: [auth, db, llm]   # from detect.sh; user may add or remove
+last_audit: 2026-10-17
+verdict: NOT_READY          # SHIP | SHIP_WITH_WAIVERS | NOT_READY
+items:                      # only non-PASS rows; PASS is recomputed every audit
+  rate-limit:  {status: WAIVED, reason: "behind Cloudflare WAF"}
+  backups:     {status: MANUAL_CONFIRMED, note: "Supabase PITR on"}
+  error-track: {status: FAIL}
+```
+
+Statuses: `PASS | FAIL | MANUAL_CONFIRMED | WAIVED`. A waiver carries a reason and is permanent for that tier.
+
+## Audit report (fixed template, no prose around it)
+
+```
+BUILD-CHECK · T2 Public · features: auth, db · 23 PASS · 2 WAIVED
+
+| Item           | Why it matters                              | Fix |
+|----------------|---------------------------------------------|-----|
+| error-tracking | you will not know when users hit crashes    | S   |
+| rate-limit     | one script can run up your bill             | M   |
+| privacy-policy | required once you collect accounts          | S   |
+| MANUAL backups | confirm DB backups or PITR are on           | –   |
+| MANUAL domain  | confirm custom domain and HTTPS are live    | –   |
+
+Verdict: NOT READY (3 FAIL, 2 unconfirmed)
+Reply: "confirm backups, domain" · "waive rate-limit: <reason>" · "fix S" (I add the S items now)
+```
+
+Rules: print FAIL and MANUAL rows only, PASS is a count. Batch every MANUAL item into that one reply line rather
+than asking per item. ○ (recommended) rows go in a single trailing line, `Recommended: a, b, c`, never in the table.
+Verdicts: `SHIP` = 0 FAIL and 0 MANUAL pending; `SHIP WITH WAIVERS` = 0 FAIL, ≥1 WAIVED; else `NOT READY`.
+Fix effort: S = under 30 minutes in code, M = an hour or a new service, L = multi-day or architectural.
+Always end by offering to do the S items in the same turn.
