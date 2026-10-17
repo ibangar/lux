@@ -1,7 +1,8 @@
 # Checklist matrix
 
-Legend: `-` not needed · `○` recommended · `●` required. `[tag]` = conditional on a detect.sh feature; skip the row
-entirely when the feature is absent, at any tier. Result states: PASS (evidence found), FAIL (evidence of absence),
+Legend: `-` not needed · `○` recommended · `●` required. `[tag]` = conditional on a detect.sh key (`[deps]`=deps,
+`[api]`=api, `[ui]`=ui, `[public-web]`=public_web, `[uploads]`=uploads, `[metered]`=metered, others by name); skip the
+row entirely when the key is `no`, at any tier. Result states: PASS (evidence found), FAIL (evidence of absence),
 MANUAL (cannot be verified from the repo; batch into one confirmation line). Verify column assumes detect.sh output
 is in hand; `d:` means read it from that line. Fix: S under 30 min, M an hour or a new service, L multi-day.
 
@@ -9,24 +10,25 @@ is in hand; `d:` means read it from that line. Fix: S under 30 min, M an hour or
 
 | Item (key)                | T0 | T1 | T2 | T3 | Verify                                                                                     | Fix |
 |---------------------------|----|----|----|----|--------------------------------------------------------------------------------------------|-----|
-| secrets (secrets)         | ●  | ●  | ●  | ●  | `d:secrets_in_repo=clean`; `.env.example` exists; `git log -p -S'sk-' --all` is empty      | S   |
-| spend cap `[llm\|cloud]` (spend-cap) | ● | ● | ● | ● | MANUAL: provider hard cap + billing alert. T1+: per-user budget check precedes each call | S   |
+| secrets (secrets)         | ●  | ●  | ●  | ●  | `d:secrets_in_repo=clean`; `.env.example` exists if the app reads env; if `.git` exists, `git log -p -S'sk-' --all` is empty | S |
+| provider spend cap `[metered]` (spend-cap) | ● | ● | ● | ● | MANUAL: hard monthly cap and a billing alert in the provider console         | S   |
+| in-code budget `[llm]` (llm-budget) | - | ● | ● | ● | a per-user and global daily token budget check precedes each call site                  | M   |
 | README (readme)           | ○  | ●  | ●  | ●  | `d:readme`; `grep -c '^## ' README.md` ≥ 3 covering setup, env vars, deploy                | S   |
-| lockfile (lockfile)       | ○  | ●  | ●  | ●  | `d:lockfile`; CI uses frozen install (`npm ci`, `uv sync --frozen`, `bundle install --deployment`) | S |
-| smoke test (smoke)        | ○  | ●  | ●  | ●  | `d:tests`; at least one test boots the app or hits the core path; CI runs it               | S   |
-| input validation (validation) | ○ | ● | ● | ● | every route body/query parsed by zod, pydantic, joi, or strong params before use           | M   |
+| lockfile `[deps]` (lockfile) | ○ | ● | ●  | ●  | `d:lockfile`; CI uses frozen install (`npm ci`, `uv sync --frozen`, `bundle install --deployment`) | S |
+| smoke test `[deps]` (smoke) | ○ | ●  | ●  | ●  | `d:tests`; at least one test boots the app or hits the core path; CI runs it               | S   |
+| input validation `[api]` (validation) | ○ | ● | ● | ● | every route body/query parsed by zod, pydantic, joi, or strong params before use           | M   |
 | HTTPS + redirect (https)  | -  | ●  | ●  | ●  | MANUAL unless platform config (vercel, netlify, fly) forces it; no `http://` API bases     | S   |
 | CI (ci)                   | -  | ○  | ●  | ●  | `d:ci`; workflow has `run:` steps for test and build on PR                                 | M   |
 | staging / previews (staging) | - | ○ | ● | ● | preview deploys in platform config, or `staging` in CI/deploy files; else MANUAL          | M   |
 | rollback plan (rollback)  | -  | ○  | ●  | ●  | `grep -ril rollback README* docs/`; migrations have `down`; platform keeps prior deploy    | S   |
-| dependency audit (dep-audit) | - | ○ | ● | ● | `.github/dependabot.yml` or `renovate.json`, or CI runs `npm audit`/`pip-audit`/`govulncheck` | S |
+| dependency audit `[deps]` (dep-audit) | - | ○ | ● | ● | `.github/dependabot.yml` or `renovate.json`, or CI runs `npm audit`/`pip-audit`/`govulncheck` | S |
 | unit tests (unit)         | -  | ○  | ●  | ●  | `find . -name '*.test.*' -o -name 'test_*.py' \| wc -l` ≥ 3, excluding node_modules        | M   |
 | regression / E2E (e2e)    | -  | -  | ○  | ●  | playwright or cypress config plus ≥1 spec on signup, checkout, or the core flow            | M   |
 | multi-device `[ui]` (devices) | - | ○ | ● | ● | mobile `viewport` or `devices[` in E2E; `@media` rules present                            | M   |
 | slow network (slow-net)   | -  | -  | ○  | ●  | `loading.tsx`, `Suspense`, `Skeleton`, or spinner components; E2E throttling if any        | M   |
 | custom domain (domain)    | -  | ○  | ●  | ●  | MANUAL                                                                                     | S   |
 | semver + changelog (changelog) | - | ○ | ○ | ● | `CHANGELOG.md` or release tags                                                             | S   |
-| license compliance (licenses) | - | - | ○ | ● | `license-checker` / `pip-licenses` output has no GPL/AGPL in a closed-source product       | S   |
+| license compliance `[deps]` (licenses) | - | - | ○ | ● | `license-checker` / `pip-licenses` output has no GPL/AGPL in a closed-source product       | S   |
 
 ## Security (see llm-security.md for what done looks like)
 
@@ -36,14 +38,14 @@ is in hand; `d:` means read it from that line. Fix: S under 30 min, M an hour or
 | password reset `[auth]` (pw-reset) | -  | ●  | ●  | ●  | `grep -rE 'reset-password\|forgot\|resetPassword'`; auto-PASS if auth=clerk,supabase,firebase,auth0,kinde | M |
 | email verification `[auth]` (email-verify) | - | ○ | ● | ● | `grep -rE 'verify-email\|emailVerified\|email_verified\|confirmable'`; same auto-PASS | M |
 | brute-force lockout `[auth]` (lockout) | - | ● | ● | ● | backoff or lockout after 5-10 failed logins; auto-PASS for hosted auth           | S   |
-| rate limiting (rate-limit)         | -  | ○  | ●  | ●  | `grep -rE 'ratelimit\|rate-limit\|@upstash/ratelimit\|express-rate-limit\|slowapi\|Rack::Attack\|throttle'` on auth and LLM routes | M |
+| rate limiting `[api]` (rate-limit) | -  | ○  | ●  | ●  | `grep -rE 'ratelimit\|rate-limit\|@upstash/ratelimit\|express-rate-limit\|slowapi\|Rack::Attack\|throttle'` on auth and LLM routes | M |
 | CORS allowlist `[api]` (cors)      | -  | ○  | ●  | ●  | `grep -rn 'cors\|Access-Control-Allow-Origin'` shows a list, not `*` with credentials | S |
-| security headers (headers)         | -  | -  | ○  | ●  | helmet / `secure_headers` / platform headers set CSP, HSTS, X-Frame-Options, nosniff | S |
+| security headers `[public-web]` (headers) | - | - | ○ | ● | helmet / `secure_headers` / platform headers set CSP, HSTS, X-Frame-Options, nosniff | S |
 | file upload limits `[uploads]` (uploads) | - | ● | ● | ● | size cap, MIME + magic-byte check, random server filename, stored outside web root | M |
-| error responses hide traces (no-traces) | - | ● | ● | ● | prod error handler returns a generic body; `DEBUG` from env                      | S   |
+| error responses hide traces `[api]` (no-traces) | - | ● | ● | ● | prod error handler returns a generic body; `DEBUG` from env                      | S   |
 | threat model (threat-model)        | -  | -  | ○  | ●  | one page in docs/: assets, attackers, entry points                               | M   |
 | secrets rotation runbook (rotation) | - | ○  | ●  | ●  | `SECURITY.md` or runbook lists every secret, where it lives, how to rotate; T2+ rotated once and dated | S |
-| admin audit log (audit-log)        | -  | -  | ●  | ●  | append-only table: actor, action, target, timestamp, on destructive and admin actions | M |
+| admin audit log `[auth]` (audit-log)        | -  | -  | ●  | ●  | append-only table: actor, action, target, timestamp, on destructive and admin actions | M |
 | MFA option `[auth]` (mfa)          | -  | -  | -  | ●  | TOTP or WebAuthn enrolment exists; hosted auth providers usually PASS            | M   |
 
 ## LLM `[llm]`
@@ -72,20 +74,20 @@ is in hand; `d:` means read it from that line. Fix: S under 30 min, M an hour or
 |--------------------------------|----|----|----|----|-------------------------------------------------------------------------------------|-----|
 | error tracking (error-track)   | -  | ○  | ●  | ●  | `d:errors`; init on client and server; `captureException` in error boundary         | S   |
 | structured logging (logging)   | -  | ○  | ●  | ●  | `pino\|winston\|structlog\|getLogger\|slog\|zap`; few `console.log` in server paths | S   |
-| uptime monitoring (uptime)     | -  | ○  | ●  | ●  | `/health` or `/healthz` route (P/F); external pinger MANUAL                         | S   |
+| uptime monitoring (uptime)     | -  | ○  | ●  | ●  | `[api]`: `/health` route (P/F); otherwise, and for the external pinger, MANUAL     | S   |
 | alerting (alerting)            | -  | -  | ○  | ●  | MANUAL unless alert rules as code                                                   | M   |
 | performance monitoring (perf)  | -  | -  | ○  | ●  | `web-vitals\|@vercel/speed-insights\|tracesSampleRate\|lhci`                        | S   |
 | analytics (analytics)          | -  | -  | ○  | ●  | `d:analytics`; at least one `capture(\|track(` conversion event                     | S   |
-| caching (caching)              | -  | -  | ○  | ●  | `Cache-Control\|revalidate\|stale-while-revalidate`; immutable static assets         | S   |
-| image optimisation (images)    | -  | -  | ○  | ●  | no raw image over 500 KB (`find . -size +500k -name '*.png' -o -name '*.jpg'`); `next/image`, `srcset`, or `loading="lazy"` | S |
+| caching `[public-web]` (caching) | -  | -  | ○  | ●  | `Cache-Control\|revalidate\|stale-while-revalidate`; immutable static assets         | S   |
+| image optimisation `[ui]` (images) | -  | -  | ○  | ●  | no raw image over 500 KB (`find . -size +500k -name '*.png' -o -name '*.jpg'`); `next/image`, `srcset`, or `loading="lazy"` | S |
 
 ## Product and UX
 
 | Item (key)                          | T0 | T1 | T2 | T3 | Verify                                                                               | Fix |
 |-------------------------------------|----|----|----|----|--------------------------------------------------------------------------------------|-----|
-| 404 / 500 / empty / loading (states) | - | ○  | ●  | ●  | Next: `not-found.tsx error.tsx loading.tsx`; else `404.html` + error handler; `EmptyState\|No results` | S |
-| accessibility (a11y)                | -  | ○  | ●  | ●  | `eslint-plugin-jsx-a11y\|axe-core\|@axe-core/playwright`; `alt=` and `aria-` present | M   |
-| OG image + favicon (og)             | -  | ○  | ●  | ●  | `favicon.ico\|icon.png\|apple-touch-icon\|opengraph-image.*`; `og:image` meta        | S   |
+| 404 / 500 / empty / loading `[ui]` (states) | - | ○  | ●  | ●  | Next: `not-found.tsx error.tsx loading.tsx`; else `404.html` + error handler; `EmptyState\|No results` | S |
+| accessibility `[ui]` (a11y)         | -  | ○  | ●  | ●  | `eslint-plugin-jsx-a11y\|axe-core\|@axe-core/playwright`; `alt=` and `aria-` present | M   |
+| OG image + favicon `[public-web]` (og) | -  | ○  | ●  | ●  | `favicon.ico\|icon.png\|apple-touch-icon\|opengraph-image.*`; `og:image` meta        | S   |
 | SEO / AEO `[public-web]` (seo)      | -  | -  | ○  | ●  | `d:robots=yes sitemap=yes`; `<meta name="description">`; `application/ld+json` on key pages | S |
 | SPF / DKIM / DMARC `[email]` (email-auth) | - | ○ | ● | ● | MANUAL: DNS only; DMARC at quarantine or above                                        | S   |
 | i18n readiness (i18n)               | -  | -  | ○  | ○  | strings in a locale file, not inline, when non-English markets are a goal             | L   |

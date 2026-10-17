@@ -16,9 +16,11 @@ P_DB='prisma|drizzle|@neondatabase|@vercel/postgres|[^a-z]pg[^a-z]|postgres|psyc
 P_LLM='@anthropic-ai/sdk|[^a-z]anthropic[^a-z]|[^a-z]openai[^a-z]|@ai-sdk/|from .ai.|langchain|llamaindex|ollama|@google/generative-ai|@google/genai|google-generativeai|[^a-z]gemini[^a-z]|bedrock-runtime|groq-sdk|mistralai|[^a-z]cohere[^a-z]'
 P_PAY='stripe|@paddle|paddle-js|lemonsqueezy|react-native-purchases|purchases_flutter|revenuecat|StoreKit|billingclient|paypal'
 P_MAIL='[^a-z]resend[^a-z]|@sendgrid|sendgrid|postmark|nodemailer|client-ses|ses_client|mailgun|EMAIL_BACKEND|mailersend|loops\.so|brevo'
+P_UP='multer|formidable|busboy|uploadthing|@vercel/blob|client-s3|multipart/form-data|django\.core\.files|ActiveStorage|carrierwave'
+P_CLOUD='@aws-sdk|boto3|@google-cloud|twilio|mapbox|@googlemaps|@azure/|cloudinary|algoliasearch|pinecone|@upstash'
 P_OBS='@sentry|sentry_sdk|sentry-ruby|posthog|plausible|googletagmanager|gtag\(|@vercel/analytics|mixpanel|[^a-z]amplitude[^a-z]|bugsnag|[^a-z]rollbar|datadog|logrocket|highlight\.run'
 TOK=$(grep -rIhoiE $XD --include=*.{js,jsx,ts,tsx,mjs,cjs,py,go,rb,swift,kt,kts,dart,java,html,toml,yml,yaml,json,xml,gradle,plist} \
-  -e "$P_AUTH|$P_DB|$P_LLM|$P_PAY|$P_MAIL|$P_OBS" . 2>/dev/null | sort -u)
+  -e "$P_AUTH|$P_DB|$P_LLM|$P_PAY|$P_MAIL|$P_OBS|$P_UP|$P_CLOUD" . 2>/dev/null | sort -u)
 t() { printf '%s\n' "$TOK" | grep -qiE -- "$1"; }
 any() { m "$1" || t "$1"; }
 pick() { local v=$1 out=""; shift; for kv in "$@"; do any "${kv#*=}" && out="$out,${kv%%=*}"; done; out="${out#,}"; printf '%s=%s ' "$v" "${out:-no}"; }
@@ -51,6 +53,16 @@ printf 'stack=%s ' "${S:-unknown}"
 case "$S" in expo|react-native|flutter|swift|kotlin-android) printf 'mobile=%s ' "$S";; *) printf 'mobile=no ';; esac
 case "$S" in static-html) printf 'static=yes ';; *) printf 'static=no ';; esac
 
+# --- shape flags (checklist tags: [deps] [api] [ui] [public-web] [uploads] [metered]) ---
+[ -n "$MAN" ] && yn deps yes || yn deps no
+API=no; case "$S" in nextjs|nuxt|js-metaframework|node-server|django|fastapi|flask|rails|go|rust) API=yes;; esac
+[ "$API" = no ] && { d -name api -o -name server -o -name functions -o -name routes -o -name controllers; } && API=yes
+yn api "$API"
+UI=no; case "$S" in static-html|vite|react|nextjs|nuxt|js-metaframework|expo|react-native|flutter|swift|kotlin-android) UI=yes;; esac
+[ "$UI" = no ] && f -name '*.html' -o -name '*.tsx' -o -name '*.jsx' -o -name '*.vue' -o -name '*.svelte' && UI=yes
+yn ui "$UI"
+case "$S" in expo|react-native|flutter|swift|kotlin-android) yn public_web no;; *) yn public_web "$UI";; esac
+
 # --- features (empty value => none detected) ---
 pick auth next-auth='next-auth|@auth/core' better-auth=better-auth clerk='@clerk/' lucia='[^a-z]lucia[^a-z]' passport=passport devise=devise \
   supabase-auth='@supabase/ssr|supabase[^;]{0,40}\.auth\.' firebase-auth='firebase/auth|firebase_auth' django-auth='django\.contrib\.auth' \
@@ -64,6 +76,8 @@ pick email resend='[^a-z]resend[^a-z]' sendgrid=sendgrid postmark=postmark nodem
 pick errors sentry='@sentry|sentry_sdk|sentry-ruby' bugsnag=bugsnag rollbar='[^a-z]rollbar' datadog=datadog highlight='highlight\.run'
 pick analytics posthog=posthog plausible=plausible ga='googletagmanager|gtag\(' vercel='@vercel/analytics' mixpanel=mixpanel amplitude='[^a-z]amplitude[^a-z]' logrocket=logrocket
 
+UP=no; any "$P_UP" && UP=yes; yn uploads "$UP"
+MET=no; { any "$P_LLM" || any "$P_CLOUD"; } && MET=yes; yn metered "$MET"
 # --- repo hygiene ---
 CI=""; ex .github/workflows/*.yml .github/workflows/*.yaml && CI=github-actions
 [ -f .gitlab-ci.yml ] && CI="$CI,gitlab"; [ -f .circleci/config.yml ] && CI="$CI,circleci"
