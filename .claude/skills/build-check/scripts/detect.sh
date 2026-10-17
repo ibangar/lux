@@ -55,8 +55,9 @@ case "$S" in static-html) printf 'static=yes ';; *) printf 'static=no ';; esac
 
 # --- shape flags (checklist tags: [deps] [api] [ui] [public-web] [uploads] [metered]) ---
 [ -n "$MAN" ] && yn deps yes || yn deps no
-API=no; case "$S" in nextjs|nuxt|js-metaframework|node-server|django|fastapi|flask|rails|go|rust) API=yes;; esac
+API=no; case "$S" in node-server|django|fastapi|flask|rails|go|rust) API=yes;; esac
 [ "$API" = no ] && { d -name api -o -name server -o -name functions -o -name routes -o -name controllers; } && API=yes
+[ "$API" = no ] && f -name 'route.ts' -o -name 'route.js' -o -name 'server.ts' -o -name '+server.ts' -o -name '*.server.ts' && API=yes
 yn api "$API"
 UI=no; case "$S" in static-html|vite|react|nextjs|nuxt|js-metaframework|expo|react-native|flutter|swift|kotlin-android) UI=yes;; esac
 [ "$UI" = no ] && f -name '*.html' -o -name '*.tsx' -o -name '*.jsx' -o -name '*.vue' -o -name '*.svelte' && UI=yes
@@ -110,8 +111,8 @@ HITS=$(grep -rIlE $XD --exclude='*.lock' --exclude='*-lock.*' --exclude='.env.ex
 R=no; f -name robots.txt -o -name 'robots.ts' -o -name 'robots.js' && R=yes
 SM=no; f -name 'sitemap*.xml' -o -name 'sitemap.ts' -o -name 'sitemap.js' -o -name 'next-sitemap.config.*' -o -name 'sitemap*.xml.gz' && SM=yes
 printf 'robots=%s sitemap=%s ' "$R" "$SM"
-PV=no; { f -iname '*privacy*' || d -iname '*privacy*' || grep -rIqiE $XD -e 'href=["'"'"']/?privacy|path:\s*["'"'"']/?privacy' . 2>/dev/null; } && PV=yes
-TM=no; { f -iname '*terms*' -o -iname '*tos.*' || d -iname 'terms*' || grep -rIqiE $XD -e 'href=["'"'"']/?terms|path:\s*["'"'"']/?terms' . 2>/dev/null; } && TM=yes
+PV=no; { f -iname '*privacy*' || d -iname '*privacy*'; } && PV=yes   # a page or file, not a link: links are checked by the legal-pages row
+TM=no; { f -iname '*terms*' -o -iname '*tos.*' || d -iname 'terms*'; } && TM=yes
 printf 'privacy=%s terms=%s ' "$PV" "$TM"
 yn readme "$(ls README* readme* 2>/dev/null | head -1)"
 yn license "$(ls LICENSE* LICENCE* 2>/dev/null | head -1)"

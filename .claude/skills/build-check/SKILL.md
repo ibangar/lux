@@ -37,8 +37,9 @@ tier, state the tier and the rule in one line and skip the question.
    `[public-web]`, `[uploads]`, `[metered]`); the row is dropped when its key is `no`. No auth means no password-reset
    row, full stop. A wrong feature guess creates a false positive the user learns to ignore, which is why this is
    observable, not asked. The script reads manifests, so a dependency with no call site still counts as present:
-   per-instance rows ("every call", "every route") then PASS vacuously and existence rows (a handler, a page, a test
-   file) FAIL. Say so in one line, `Declared but not wired: llm, auth`, so the user knows the FAILs mean unbuilt, not misbuilt.
+   existence rows (a handler, a page, a test file) FAIL, and per-instance rows ("every call", "every route") are
+   skipped rather than counted as PASS, since there is nothing to inspect yet. Name those features on the
+   `Declared but not wired:` line of the report so the user knows the FAILs mean unbuilt, not misbuilt.
 2. **Tier second.** Read `.buildcheck.yml` if present. Otherwise propose a tier from signals (store config or
    payments → T3; "client", "team" → T1; nothing → T0) and confirm in one question with the default stated.
 3. **Floor always.** The never-rules below apply at every tier because they cost minutes to follow and days to recover from.
@@ -46,7 +47,8 @@ tier, state the tier and the rule in one line and skip the question.
 ## Workflow
 
 **INTAKE** (new project, or no `.buildcheck.yml`): run detect.sh, propose tier, one confirmation question unless an
-escalation rule already fixes it, write `.buildcheck.yml`. Do not load the checklist. About 100 tokens of output.
+escalation rule already fixes it, write `.buildcheck.yml`. Do not load the checklist; INTAKE alone is about 100 tokens
+of output.
 When an AUDIT trigger arrives with no state file, do INTAKE and AUDIT in the same turn: ask, state the default you are
 proceeding on, and audit against it; the user corrects the tier by replying.
 
@@ -106,6 +108,8 @@ reason and is permanent for that tier.
 
 ```
 BUILD-CHECK · T2 Public · features: auth, db · 23 PASS · 3 FAIL · 2 MANUAL · 2 WAIVED
+Tier: recorded in .buildcheck.yml        (or: "T3 by rule: payments present")
+Declared but not wired: none
 
 | Item           | Why it matters                              | Fix |
 |----------------|---------------------------------------------|-----|
@@ -121,10 +125,11 @@ Reply: "confirm backups, domain" · "waive rate-limit: <reason>" · "fix S" (I a
 
 Rules: print FAIL and MANUAL rows only, PASS is a count. Batch every MANUAL item into that one reply line rather
 than asking per item. ○ (recommended) rows go in a single trailing line, `Recommended: a, b, c`, at most five, chosen
-by what hurts first at the next tier up; never in the table. With nothing to print, drop the table and keep the header,
-verdict, and Recommended line. When FAIL exceeds twelve, keep the table to the Security, LLM, Payments, and Data rows
-plus `secrets`, and collapse every other section to one line, `Foundation: ci, smoke, unit, readme (4 FAIL)`, so the
-dangerous rows stay visible. One framing sentence before the block is allowed in that case, nothing more.
+by what hurts first at the next tier up; omit the line when there are none, which is usual at T3. Never put ○ rows in
+the table. With nothing to print, drop the table and keep the header, verdict, and Recommended line. When FAIL exceeds
+twelve, keep the table to the Security, LLM, Payments, and Data rows plus `secrets` and `spend-cap`, and collapse every
+other section to one line, `Foundation: ci, smoke, unit, readme (4 FAIL) · MANUAL: https, domain`, so the dangerous
+rows stay visible. One framing sentence before the block is allowed in that case, nothing more.
 Verdicts: `SHIP` = 0 FAIL and 0 MANUAL pending; `SHIP WITH WAIVERS` = 0 FAIL, ≥1 WAIVED; else `NOT READY`.
 Fix effort: S = under 30 minutes in code, M = an hour or a new service, L = multi-day or architectural.
 Always end by offering to do the S items in the same turn.

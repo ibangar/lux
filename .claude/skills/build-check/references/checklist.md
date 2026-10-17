@@ -28,7 +28,7 @@ is in hand; `d:` means read it from that line. Fix: S under 30 min, M an hour or
 | slow network (slow-net)   | -  | -  | ○  | ●  | `loading.tsx`, `Suspense`, `Skeleton`, or spinner components; E2E throttling if any        | M   |
 | custom domain (domain)    | -  | ○  | ●  | ●  | MANUAL                                                                                     | S   |
 | semver + changelog (changelog) | - | ○ | ○ | ● | `CHANGELOG.md` or release tags                                                             | S   |
-| license compliance `[deps]` (licenses) | - | - | ○ | ● | `license-checker` / `pip-licenses` output has no GPL/AGPL in a closed-source product       | S   |
+| license compliance `[deps]` (licenses) | - | - | ○ | ● | `license-checker` / `pip-licenses` output has no GPL/AGPL in a closed-source product; MANUAL when deps are not installed | S |
 
 ## Security (see llm-security.md for what done looks like)
 
