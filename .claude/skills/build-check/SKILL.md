@@ -3,14 +3,13 @@ name: build-check
 description: >-
   Production-readiness gate scaled to the app's blast radius: T0 personal sandbox, T1 trusted few (client or team),
   T2 public and free, T3 paid product or app-store submission. Use it whenever the user starts building anything new,
-  from a full app down to a small script or one-off tool, even one that is "just for me" (it records T0 in one line
-  and moves on). Use it again whenever the audience grows or the user asks to deploy, ship, publish, launch, release,
-  go live, host, send a link, hand off to a client, or submit to TestFlight, the App Store, Play Store, or Apple review,
-  and whenever they ask "is this ready", "what am I missing", "is this secure enough", "am I building this properly",
-  or how far it is from something they could sell, charge for, or run as a SaaS. Also use it when they mention
-  customers, users signing up, subscriptions, or payments, or when a personal tool is about to be shared with anyone
-  else. Records the tier once in .buildcheck.yml and keeps a short list of never-rules in mind while writing backend,
-  auth, or LLM code. Does not review code correctness, UI design, or CI syntax.
+  from a full app down to a small script or one-off tool, even one that is "just for me". Use it again whenever the
+  audience grows or the user asks to deploy, ship, publish, launch, release, go live, host, send a link, hand off to
+  a client, or submit to TestFlight, the App Store, Play Store, or Apple review, and whenever they ask "is this ready",
+  "what am I missing", "is this secure enough", "am I building this properly", or how far it is from something they
+  could sell, charge for, or run as a SaaS. Also use it when they mention customers, users signing up, subscriptions,
+  or payments, or when a personal tool is about to be shared with anyone else. Records the tier in .buildcheck.yml and
+  applies never-rules while coding. Does not review code correctness, UI design, or CI syntax.
 ---
 
 # build-check
