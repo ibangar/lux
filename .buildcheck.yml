@@ -1,0 +1,5 @@
+tier: T0                 # Sandbox: author plus friends, no one else's data. Change to T1 if anyone will rely on it.
+features: [ui, public-web]
+last_audit: 2026-10-18
+verdict: SHIP
+items: {}
